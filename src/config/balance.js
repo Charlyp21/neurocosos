@@ -4,11 +4,15 @@ export const PK = {
   therapeuticMax: 60,
   toxicLevel: 80,
   lethalLevel: 100,
-  ke: 0.03, // 1/s -> vida media ~23 s (acelerada por jugabilidad)
-  initialConcentration: 40
+  ke: 0.06, // 1/s -> vida media ~11.5 s (acelerada por jugabilidad)
+  initialConcentration: 40,
+  // Segundos acumulados bajo el mínimo terapéutico que provocan derrota
+  maxTimeBelowMin: 20,
+  // Con C en rango, el acumulador baja a esta velocidad (x tiempo real)
+  timeRecoveryRate: 1.5
 };
 
-export const PILL_DOSE = 30;
+export const PILL_DOSE = 25;
 
 export const PLAYER = {
   speed: 200,

@@ -117,13 +117,13 @@ Estado actual del código: prototipo en `main.js` con `Pharmacokinetics`, medido
 - [x] Config de escala responsive (`Scale.FIT`, `autoCenter`), clamp de `delta`, pausa en `visibilitychange`
 - [x] Limpiar archivos de plantilla Vite sin uso (`counter.js`, `javascript.svg`, etc.)
 
-### Fase 1 – Núcleo PK y reglas
-- [ ] Normalizar C a 0–100 y añadir `lethalLevel`
-- [ ] Enum de zonas + eventos en cambio de zona
-- [ ] Acumuladores `timeBelowMin` / `timeAboveMax`
-- [ ] `ConditionSystem`: derrota por C letal o tiempo bajo mínimo; victoria por meta
-- [ ] Tests unitarios del modelo PK con Node (`vitest` o `node --test`): decaimiento, dosis, cruce de umbrales, determinismo
-- [ ] Ajustar `ke` y dosis para que el nivel dure ~3–5 min con margen realista (ver §6)
+### Fase 1 – Núcleo PK y reglas (completada, pendiente validación del usuario)
+- [x] Normalizar C a 0–100 y añadir `lethalLevel`
+- [x] Enum de zonas + eventos en cambio de zona
+- [x] Acumuladores `timeBelowMin` / `timeAboveMax`
+- [x] `ConditionSystem`: derrota por C letal o tiempo bajo mínimo; victoria por meta
+- [x] Tests unitarios del modelo PK con Node (`vitest` o `node --test`): decaimiento, dosis, cruce de umbrales, determinismo
+- [x] Ajustar `ke` y dosis para que el nivel dure ~3–5 min con margen realista (ver §6)
 
 ### Fase 2 – Jugador y mundo
 - [ ] `Player` con máquina de estados (idle/run/jump/fall/seizure/dizzy)
@@ -193,13 +193,13 @@ Estado actual del código: prototipo en `main.js` con `Pharmacokinetics`, medido
 |---|---|---|
 | `therapeuticMin` / `therapeuticMax` | 20 / 60 | |
 | `toxicLevel` / `lethalLevel` | 80 / 100 | |
-| `ke` | 0.03 /s | vida media ≈ 23 s (acelerada para jugabilidad) |
-| Dosis pastilla | 30 | |
-| Tiempo máx. bajo min antes de derrota | 20 s | |
+| `ke` | 0.06 /s | vida media ≈ 11.5 s (acelerada para jugabilidad) |
+| Dosis pastilla | 25 | Dos pastillas seguidas desde el mínimo no son letales |
+| Tiempo máx. bajo min antes de derrota | 20 s | Se recupera a 1.5x al volver a rango |
 | Aura empieza tras | 3 s bajo min | |
 | Duración de crisis | 2.5 s + 1 s recuperación | |
 
-> Fórmula útil: `t½ = ln(2)/ke`. Con `ke = 0.1` (actual) `t½ ≈ 6.9 s`, probablemente demasiado rápido.
+> Fórmula útil: `t½ = ln(2)/ke`. Con `ke = 0.1` `t½ ≈ 6.9 s` (demasiado rápido); con `0.03` `t½ ≈ 23 s` (demasiado lento según pruebas).
 
 ## 7. Backlog post Nivel 1
 
@@ -223,5 +223,7 @@ Estado actual del código: prototipo en `main.js` con `Pharmacokinetics`, medido
 |---|---|
 | 2026-10-21 | Módulo `Pharmacokinetics`, medidor y prototipo jugable (jugador, plataformas, pastillas) |
 | 2026-11-04 | Creación de este plan |
+| 2026-11-04 | Fase 1: zonas, eventos, acumuladores, `ConditionSystem`, 13 tests (`npm test`), meta provisional, reinicio con R |
+| 2026-11-04 | Fix: sobredosis letal no se detectaba (el decaimiento del mismo frame la anulaba); `ke` 0.03 → 0.06 |
 | 2026-11-04 | Fase 0: estructura `config/` y `scenes/`, `GameScene`, escala 960×540 pixel art, `balance.js`, limpieza de plantilla |
 
