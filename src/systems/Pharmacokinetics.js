@@ -1,15 +1,17 @@
-// Límites de la ventana terapéutica (unidades arbitrarias de concentración)
-export const THERAPEUTIC_MIN = 20;
-export const THERAPEUTIC_MAX = 60;
-export const TOXIC_LEVEL = 80;
+import { PK } from '../config/balance.js';
+
+// Reexportados por compatibilidad
+export const THERAPEUTIC_MIN = PK.therapeuticMin;
+export const THERAPEUTIC_MAX = PK.therapeuticMax;
+export const TOXIC_LEVEL = PK.toxicLevel;
 
 export default class Pharmacokinetics {
   /**
    * @param {object} [options]
-   * @param {number} [options.ke=0.1] Constante de eliminación (1/s).
-   * @param {number} [options.concentration=0] Concentración inicial.
+   * @param {number} [options.ke=0.03] Constante de eliminación (1/s).
+   * @param {number} [options.concentration=40] Concentración inicial.
    */
-  constructor({ ke = 0.1, concentration = 0 } = {}) {
+  constructor({ ke = PK.ke, concentration = PK.initialConcentration } = {}) {
     this.therapeuticMin = THERAPEUTIC_MIN;
     this.therapeuticMax = THERAPEUTIC_MAX;
     this.toxicLevel = TOXIC_LEVEL;
