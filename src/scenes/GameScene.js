@@ -1,10 +1,17 @@
 import Phaser from 'phaser';
 import Pharmacokinetics from '../systems/Pharmacokinetics.js';
 import ConditionSystem, { GameState, LoseReason } from '../systems/ConditionSystem.js';
-import { PILL_DOSE, PLAYER, MAX_DELTA_MS, GAME_WIDTH, GAME_HEIGHT } from '../config/balance.js';
+import InputController from '../systems/InputController.js';
+import Player from '../entities/Player.js';
+import createProceduralTextures from '../utils/proceduralTextures.js';
+import { buildLevel, zoneAt, GROUND_TOP } from '../data/level1.js';
+import {
+  PILL_DOSE, MAX_DELTA_MS, GAME_WIDTH, GAME_HEIGHT, GROUND_HEIGHT, CAMERA
+} from '../config/balance.js';
 
 // Medidor de concentración plasmática (esquina superior derecha)
 const GAUGE = { x: GAME_WIDTH - 60, y: 20, width: 40, height: 200, maxValue: 100 };
+const DEBUG_INTERVAL_MS = 100;
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -12,107 +19,128 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
+    createProceduralTextures(this);
+    const level = buildLevel();
+    this.level = level;
+
     this.pk = new Pharmacokinetics();
     this.conditions = new ConditionSystem(this.pk);
     this.conditions.onEnd((state, reason) => this.onGameEnd(state, reason));
     this.lastGaugeValue = -1;
+    this.debugTimer = 0;
+    this.currentZoneId = null;
 
-    this.add.text(20, 20, 'Farmacocinética: Test de Ventana Terapéutica', {
-      fontSize: '20px',
-      color: '#00ffcc',
-      fontFamily: 'monospace'
-    });
-    this.add.text(20, 50, 'Flechas: mover/saltar. Pastillas = dosis. Meta: franja amarilla (R: reiniciar)', {
-      fontSize: '14px',
-      color: '#888888',
-      fontFamily: 'monospace'
-    });
+    this.createBackground();
+    this.createWorld(level);
+    this.createCamera(level);
+    this.createHud();
 
-    this.createTextures();
+    this.inputController = new InputController(this);
+    this.input.keyboard.on('keydown-R', () => this.scene.restart());
+    this.drawGauge();
+  }
 
-    // Plataformas estáticas
+  // --- Construcción ---------------------------------------------------------
+
+  createBackground() {
+    const sky = this.add.tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, 'bg_sky').setOrigin(0).setScrollFactor(0).setDepth(-30);
+    this.layers = [
+      { sprite: this.add.tileSprite(0, GAME_HEIGHT - 512, GAME_WIDTH, 512, 'bg_far').setOrigin(0).setScrollFactor(0).setDepth(-20), factor: 0.2 },
+      { sprite: this.add.tileSprite(0, GAME_HEIGHT - 512, GAME_WIDTH, 512, 'bg_near').setOrigin(0).setScrollFactor(0).setDepth(-10), factor: 0.5 }
+    ];
+    this.sky = sky;
+  }
+
+  createWorld(level) {
+    const W = level.worldWidth;
+    this.physics.world.setBounds(0, 0, W, GAME_HEIGHT);
+
     const platforms = this.physics.add.staticGroup();
-    platforms.create(GAME_WIDTH / 2, GAME_HEIGHT - 10, 'platform').setScale(10, 1).refreshBody(); // suelo
-    platforms.create(200, 410, 'platform');
-    platforms.create(450, 320, 'platform');
-    platforms.create(700, 230, 'platform');
-    platforms.create(150, 220, 'platform');
+    const addSolid = (cx, top, w, h, texture) => {
+      const ts = this.add.tileSprite(cx, top + h / 2, w, h, texture);
+      this.physics.add.existing(ts, true);
+      platforms.add(ts);
+    };
+    addSolid(W / 2, GROUND_TOP, W, GROUND_HEIGHT, 'ground_tile');
+    for (const p of level.platforms) addSolid(p.x, p.y, p.w, p.h, 'platform_tile');
 
-    // Jugador
-    this.player = this.physics.add.sprite(100, 450, 'player');
-    this.player.setCollideWorldBounds(true);
+    this.player = new Player(this, level.spawn.x, level.spawn.y);
     this.physics.add.collider(this.player, platforms);
-    this.cursors = this.input.keyboard.createCursorKeys();
 
-    // Pastillas coleccionables
     const pills = this.physics.add.group({ allowGravity: false, immovable: true });
-    [[200, 370], [450, 280], [700, 190], [150, 180], [350, 500], [650, 500]]
-      .forEach(([x, y]) => pills.create(x, y, 'pill'));
+    for (const p of level.pills) pills.create(p.x, p.y, 'pill');
     this.physics.add.overlap(this.player, pills, (_player, pill) => {
       pill.destroy();
       this.pk.administerDose(PILL_DOSE);
     });
 
-    // Meta (provisional hasta tener el mapa)
-    const goal = this.physics.add.staticImage(GAME_WIDTH - 40, GAME_HEIGHT - 60, 'goal');
+    const goal = this.physics.add.staticImage(level.goal.x, level.goal.y, 'goal');
     this.physics.add.overlap(this.player, goal, () => this.conditions.win());
-
-    // Depuración de estado PK
-    this.debugText = this.add.text(20, 80, '', {
-      fontSize: '14px',
-      color: '#cccccc',
-      fontFamily: 'monospace'
-    });
-
-    this.input.keyboard.once('keydown-R', () => this.scene.restart());
-
-    this.gauge = this.add.graphics();
-    this.drawGauge();
   }
 
-  createTextures() {
-    const tex = this.add.graphics();
-    tex.fillStyle(0x3399ff, 1);
-    tex.fillRect(0, 0, 32, 48);
-    tex.generateTexture('player', 32, 48);
-    tex.clear();
-    tex.fillStyle(0x555555, 1);
-    tex.fillRect(0, 0, 100, 20);
-    tex.generateTexture('platform', 100, 20);
-    tex.clear();
-    tex.fillStyle(0xffffff, 1);
-    tex.fillCircle(8, 8, 8);
-    tex.fillStyle(0xff66aa, 1);
-    tex.fillCircle(8, 8, 5);
-    tex.generateTexture('pill', 16, 16);
-    tex.clear();
-    tex.fillStyle(0xffdd00, 1);
-    tex.fillRect(0, 0, 24, 80);
-    tex.generateTexture('goal', 24, 80);
-    tex.destroy();
+  createCamera(level) {
+    const cam = this.cameras.main;
+    cam.setBounds(0, 0, level.worldWidth, GAME_HEIGHT);
+    cam.startFollow(this.player, true, CAMERA.lerp, CAMERA.lerp);
+    cam.setDeadzone(CAMERA.deadzoneW, CAMERA.deadzoneH);
+    this.cam = cam;
   }
+
+  /** Objeto de HUD: fijo a la pantalla, por encima del mundo. */
+  hud(obj) {
+    return obj.setScrollFactor(0).setDepth(50);
+  }
+
+  createHud() {
+    const style = { fontFamily: 'monospace' };
+    this.hud(this.add.text(20, 20, 'Neurocosos – prototipo', { ...style, fontSize: '20px', color: '#00ffcc' }));
+    this.zoneText = this.hud(this.add.text(20, 48, '', { ...style, fontSize: '16px', color: '#ffffff' }));
+    this.debugText = this.hud(this.add.text(20, 74, '', { ...style, fontSize: '12px', color: '#aaaaaa' }));
+    this.hud(this.add.text(20, GAME_HEIGHT - 24, 'Flechas/WASD: mover y saltar · R: reiniciar', { ...style, fontSize: '12px', color: '#777777' }));
+    this.gauge = this.hud(this.add.graphics());
+  }
+
+  // --- Bucle ----------------------------------------------------------------
 
   update(time, delta) {
     if (this.conditions.state !== GameState.PLAYING) return;
     const dt = Math.min(delta, MAX_DELTA_MS);
-    const { player, cursors } = this;
 
-    if (cursors.left.isDown) player.setVelocityX(-PLAYER.speed);
-    else if (cursors.right.isDown) player.setVelocityX(PLAYER.speed);
-    else player.setVelocityX(0);
-
-    if (cursors.up.isDown && player.body.blocked.down) {
-      player.setVelocityY(PLAYER.jumpVelocity);
-    }
+    this.inputController.update();
+    this.player.tick(this.inputController, dt);
 
     this.pk.update(dt);
     this.conditions.update();
-    this.debugText.setText(
-      `Zona: ${this.pk.zone}  C: ${this.pk.concentration.toFixed(1)}\n` +
-      `Bajo mínimo: ${this.pk.timeBelowMin.toFixed(1)}/${this.pk.maxTimeBelowMin}s  ` +
-      `Sobre máx: ${this.pk.timeAboveMax.toFixed(1)}s`
-    );
 
+    this.updateCamera();
+    this.updateParallax();
+    this.updateZone();
+    this.updateGauge();
+    this.updateDebug(delta);
+  }
+
+  updateCamera() {
+    // Mirada adelantada hacia la dirección del jugador
+    const target = -this.player.facing * CAMERA.lookAhead;
+    this.cam.followOffset.x += (target - this.cam.followOffset.x) * CAMERA.lookAheadLerp;
+  }
+
+  updateParallax() {
+    const sx = this.cam.scrollX;
+    for (let i = 0; i < this.layers.length; i++) {
+      this.layers[i].sprite.tilePositionX = sx * this.layers[i].factor;
+    }
+  }
+
+  updateZone() {
+    const zone = zoneAt(this.player.x);
+    if (zone.id !== this.currentZoneId) {
+      this.currentZoneId = zone.id;
+      this.zoneText.setText(`Zona: ${zone.name}`);
+    }
+  }
+
+  updateGauge() {
     // Solo redibujar si el valor cambió visiblemente
     const rounded = Math.round(this.pk.concentration * 10);
     if (rounded !== this.lastGaugeValue) {
@@ -120,6 +148,20 @@ export default class GameScene extends Phaser.Scene {
       this.drawGauge();
     }
   }
+
+  updateDebug(delta) {
+    this.debugTimer += delta;
+    if (this.debugTimer < DEBUG_INTERVAL_MS) return;
+    this.debugTimer = 0;
+    const pk = this.pk;
+    this.debugText.setText(
+      `FPS ${Math.round(this.game.loop.actualFps)}  x ${Math.round(this.player.x)}/${this.level.worldWidth}  ${this.player.moveState}\n` +
+      `${pk.zone}  C ${pk.concentration.toFixed(1)}\n` +
+      `bajo mín ${pk.timeBelowMin.toFixed(1)}/${pk.maxTimeBelowMin}s  sobre máx ${pk.timeAboveMax.toFixed(1)}s`
+    );
+  }
+
+  // --- Fin de partida -------------------------------------------------------
 
   onGameEnd(state, reason) {
     this.physics.pause();
@@ -134,17 +176,15 @@ export default class GameScene extends Phaser.Scene {
         ? 'Sobredosis: la concentración llegó al nivel máximo de toxicidad.'
         : 'Pasaste demasiado tiempo por debajo del umbral terapéutico.';
     }
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, 140, 0x000000, 0.8);
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 30, title, {
-      fontSize: '32px', color: '#ffffff', fontFamily: 'monospace'
-    }).setOrigin(0.5);
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 10, detail, {
-      fontSize: '16px', color: '#cccccc', fontFamily: 'monospace'
-    }).setOrigin(0.5);
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 40, 'Presiona R para reiniciar', {
-      fontSize: '14px', color: '#888888', fontFamily: 'monospace'
-    }).setOrigin(0.5);
+    const cx = GAME_WIDTH / 2;
+    const cy = GAME_HEIGHT / 2;
+    this.hud(this.add.rectangle(cx, cy, GAME_WIDTH, 140, 0x000000, 0.8)).setDepth(60);
+    this.hud(this.add.text(cx, cy - 30, title, { fontSize: '32px', color: '#ffffff', fontFamily: 'monospace' }).setOrigin(0.5)).setDepth(61);
+    this.hud(this.add.text(cx, cy + 10, detail, { fontSize: '16px', color: '#cccccc', fontFamily: 'monospace' }).setOrigin(0.5)).setDepth(61);
+    this.hud(this.add.text(cx, cy + 40, 'Presiona R para reiniciar', { fontSize: '14px', color: '#888888', fontFamily: 'monospace' }).setOrigin(0.5)).setDepth(61);
   }
+
+  // --- Medidor --------------------------------------------------------------
 
   valueToY(value) {
     const v = Phaser.Math.Clamp(value, 0, GAUGE.maxValue);

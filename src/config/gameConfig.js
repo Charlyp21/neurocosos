@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import PreloadScene from '../scenes/PreloadScene.js';
 import GameScene from '../scenes/GameScene.js';
 import { PLAYER, GAME_WIDTH, GAME_HEIGHT } from './balance.js';
 
@@ -22,5 +23,5 @@ export default {
       debug: false
     }
   },
-  scene: [GameScene]
+  scene: [PreloadScene, GameScene]
 };

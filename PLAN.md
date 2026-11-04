@@ -125,12 +125,12 @@ Estado actual del código: prototipo en `main.js` con `Pharmacokinetics`, medido
 - [x] Tests unitarios del modelo PK con Node (`vitest` o `node --test`): decaimiento, dosis, cruce de umbrales, determinismo
 - [x] Ajustar `ke` y dosis para que el nivel dure ~3–5 min con margen realista (ver §6)
 
-### Fase 2 – Jugador y mundo
-- [ ] `Player` con máquina de estados (idle/run/jump/fall/seizure/dizzy)
-- [ ] Mejoras de feel: coyote time, jump buffer, salto de altura variable
-- [ ] Soporte táctil (botones virtuales en pantalla) además de teclado
-- [ ] Tilemap en **Tiled** (JSON) con capas: fondo, colisión, objetos (spawn, pastillas, meta, hazards)
-- [ ] Cámara con seguimiento (`startFollow`, lerp, bounds del mapa); parallax de fondo
+### Fase 2 – Jugador y mundo (en curso: hecho con texturas provisionales; falta Tiled y zonas finales)
+- [x] `Player` con máquina de estados (idle/run/jump/fall; seizure/dizzy se añaden en Fase 4)
+- [x] Mejoras de feel: coyote time, jump buffer, salto de altura variable
+- [x] Soporte táctil (botones virtuales en pantalla) además de teclado
+- [ ] (Provisional hecho: `data/level1.js` genera un nivel de 12000 px con el mismo contenido) Tilemap en **Tiled** (JSON) con capas: fondo, colisión, objetos (spawn, pastillas, meta, hazards)
+- [x] Cámara con seguimiento (`startFollow`, lerp, bounds del mapa); parallax de fondo
 - [ ] Zonas del mapa del Nivel 1 (casa → calle → cruce de avenida → zona con gente → escuela)
 
 ### Fase 3 – Pastillas y obstáculos
@@ -223,6 +223,7 @@ Estado actual del código: prototipo en `main.js` con `Pharmacokinetics`, medido
 |---|---|
 | 2026-10-21 | Módulo `Pharmacokinetics`, medidor y prototipo jugable (jugador, plataformas, pastillas) |
 | 2026-11-04 | Creación de este plan |
+| 2026-11-04 | Fase 2 (parcial): `Player`, `InputController` (teclado+táctil), cámara con lookahead/deadzone, parallax, nivel provisional de 12000 px, texturas procedurales |
 | 2026-11-04 | Fase 1: zonas, eventos, acumuladores, `ConditionSystem`, 13 tests (`npm test`), meta provisional, reinicio con R |
 | 2026-11-04 | Fix: sobredosis letal no se detectaba (el decaimiento del mismo frame la anulaba); `ke` 0.03 → 0.06 |
 | 2026-11-04 | Fase 0: estructura `config/` y `scenes/`, `GameScene`, escala 960×540 pixel art, `balance.js`, limpieza de plantilla |
